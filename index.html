@@ -1,4 +1,7 @@
 
+
+
+
 <!DOCTYPE html>
 <html>
 <head>
@@ -6,12 +9,19 @@
   <title>Islamic Routine Tracker</title>
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta property="og:title" content="Islamic Routine Tracker">
-<meta property="og:description" content="Track your daily Islamic habits بسهولة 📊">
+  <meta property="og:title" content="Islamic Routine Tracker">
+  <meta property="og:description" content="Track your daily Islamic habits بسهولة 📊">
 
-<meta property="og:image" content="https://raw.githubusercontent.com/noordeen2470-prog/islamtracker/003de2be0154af1efeb7f6cd39329ad1f168f0a9/preview.png">
-<meta property="og:url" content="https://noordeen2470-prog.github.io/islamictraker2/">
-<meta property="og:type" content="website">
+  <!-- Corrected: Keeping only one OG image -->
+  <meta property="og:image" content="https://raw.githubusercontent.com/noordeen2470-prog/ibadah/78df751c027ca9aec517e7f7f07645c5c64e8301/preview.png">
+
+  <!-- Favicon for the browser tab -->
+<link rel="icon" href="https://raw.githubusercontent.com/noordeen2470-prog/ibadahlogs/41b862722d0dac15ffea135eea6d4683ecd56a87/Frame2.png" type="image/png">
+<link rel="apple-touch-icon" sizes="180x180"
+href="https://raw.githubusercontent.com/noordeen2470-prog/sss/797c8343311c2b4c7d636aced0934a2d2c05fbde/Icon.png">
+
+  <meta property="og:url" content="https://noordeen2470-prog.github.io/islamictraker2/">
+  <meta property="og:type" content="website">
 
 
 <style>
@@ -78,21 +88,20 @@ h1 {
 
 .center-controls{
   display:flex;
-  gap:6px;
+  gap:8px;
   align-items:center;
   flex-wrap:wrap;
   justify-content:center;
   flex:1;
 }
 
-/* logout always right end */
 .logout-btn{
   position:static;
   background:#dc2626;
   color:white;
   border:none;
-  padding:6px 12px;
-  border-radius:6px;
+  padding:8px 14px;
+  border-radius:8px;
   cursor:pointer;
   flex-shrink:0;
 }
@@ -268,6 +277,11 @@ input[type="checkbox"] {
   cursor:pointer;
 }
 
+.overlay-google-btn:disabled{
+  opacity:0.7;
+  cursor:not-allowed;
+}
+
 .google-btn img{
   width:20px;
   height:20px;
@@ -301,36 +315,57 @@ input[type="checkbox"] {
   .date-bar{
     flex-direction:column;
     align-items:stretch;
+    gap:10px;
   }
 
   .center-controls{
-    display:grid;
-    grid-template-columns:1fr 1fr;
+    display:flex;
+    flex-wrap:wrap;
+    justify-content:center;
+    align-items:center;
     gap:8px;
     width:100%;
   }
 
-  .center-controls input{
-    width:100%;
-    box-sizing:border-box;
+  .center-controls input[type="date"]{
+    width:135px;
+    min-width:135px;
+    max-width:135px;
+    padding:10px 12px;
     margin:0;
+    border:none;
+    border-radius:999px;
+    background:#e5e7eb;
+    text-align:center;
+    font-size:14px;
+    box-sizing:border-box;
   }
 
   .center-controls button{
-    width:100%;
-    box-sizing:border-box;
     margin:0;
   }
 
-  .center-controls > :nth-child(1),
-  .center-controls > :nth-child(2),
-  .center-controls > :nth-child(4){
-    grid-column:1 / -1;
+  .center-controls button:nth-of-type(1){
+    padding:10px 18px;
+    border-radius:10px;
+    font-size:14px;
   }
+
+  .center-controls button:nth-of-type(2){
+  grid-column:5;
+  justify-self:end;
+  padding:10px 16px;
+  border-radius:10px;
+  background:#f1f5f9 !important;
+  color:#065f46 !important;
+  width:auto;
+}
 
   .logout-btn{
     width:100%;
     margin:0;
+    padding:10px 16px;
+    border-radius:10px;
   }
 }
 
@@ -359,9 +394,9 @@ input[type="checkbox"] {
     <h2>Welcome Back</h2>
     <p>Login to continue your Islamic journey</p>
 
-    <button onclick="loginUser()" class="overlay-google-btn">
-      Continue with Google
-    </button>
+   <button id="googleLoginBtn" onclick="loginUser()" class="overlay-google-btn">
+  Continue with Google
+</button>
   </div>
 </div>
 <div id="mainApp" style="display:none;">
@@ -396,7 +431,7 @@ input[type="checkbox"] {
   <div class="center-controls">
     From: <input type="date" id="startDate">
     To: <input type="date" id="endDate">
-    <button onclick="generateTable()">Apply</button>
+    <button onclick="saveDateRange()">Apply</button>
 
     <button onclick="toggleEditor()" style="background:#f1f5f9;color:#065f46;">
       Edit Routine
@@ -438,6 +473,7 @@ import {
   onSnapshot
 } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js";
 
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
   apiKey: "AIzaSyCNTpriuK_d-yO83Q9LsWQIlUnZQ5t8gyA",
   authDomain: "islamic-routine-tracker.firebaseapp.com",
@@ -453,23 +489,46 @@ const app = initializeApp(firebaseConfig);
 
 const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
+provider.setCustomParameters({
+  prompt: "select_account"
+});
 const db = getFirestore(app);
 
 window.currentUser = null;
 window.cloudChecks = {};
 window.unsubscribeTracker = null;
 
+function resetLoginButton() {
+  const btn = document.getElementById("googleLoginBtn");
+  if (!btn) return;
+
+  btn.disabled = false;
+  btn.innerText = "Continue with Google";
+  btn.style.opacity = "1";
+  btn.style.cursor = "pointer";
+}
+
 function getTrackerRef(uid) {
   return doc(db, "users", uid, "tracker", "main");
 }
 
 window.loginUser = function () {
+  const btn = document.getElementById("googleLoginBtn");
+
+  btn.disabled = true;
+  btn.innerText = "Signing in...";
+  btn.style.opacity = "0.7";
+  btn.style.cursor = "not-allowed";
+
   signInWithPopup(auth, provider).catch(error => {
+    resetLoginButton();
     alert(error.message);
   });
 };
 
 window.logoutUser = function () {
+  resetLoginButton();
+
   signOut(auth).catch(error => {
     alert(error.message);
   });
@@ -483,7 +542,9 @@ async function createUserDocIfMissing(uid) {
     await setDoc(ref, {
       routineTitle: window.routineTitle || "Routine (WHEN + WHAT)",
       habits: window.habits || [],
-      checks: {}
+      checks: {},
+      startDate: localStorage.getItem("startDate") || "2026-04-09",
+      endDate: localStorage.getItem("endDate") || "2026-05-09"
     });
   }
 }
@@ -507,9 +568,39 @@ function startTrackerSync(uid) {
 
     window.routineTitle = data.routineTitle || "Routine (WHEN + WHAT)";
 
+    const cloudStartDate = data.startDate || "2026-04-09";
+    const cloudEndDate = data.endDate || "2026-05-09";
+
+    document.getElementById("startDate").value = cloudStartDate;
+    document.getElementById("endDate").value = cloudEndDate;
+
+    localStorage.setItem("startDate", cloudStartDate);
+    localStorage.setItem("endDate", cloudEndDate);
+
     generateTable();
   });
 }
+
+window.saveDateRange = async function () {
+  if (!window.currentUser) return;
+
+  const startDate = document.getElementById("startDate").value;
+  const endDate = document.getElementById("endDate").value;
+
+  try {
+    await setDoc(
+      getTrackerRef(window.currentUser.uid),
+      {
+        startDate,
+        endDate
+      },
+      { merge: true }
+    );
+  } catch (error) {
+    alert("Could not save date range");
+    console.error(error);
+  }
+};
 
 window.saveCheck = async function (dateKey, habitIndex, value) {
   if (!window.currentUser) return;
@@ -561,9 +652,6 @@ window.saveEditedHabits = async function () {
 };
 
 onAuthStateChanged(auth, async (user) => {
-  // hide loading always first
-  document.getElementById("loadingScreen").style.display = "none";
-
   if (user) {
     window.currentUser = user;
 
@@ -571,10 +659,12 @@ onAuthStateChanged(auth, async (user) => {
     document.getElementById("mainApp").style.display = "block";
 
     setDefaultDates();
-    generateTable();
 
     await createUserDocIfMissing(user.uid);
     startTrackerSync(user.uid);
+
+    // hide loading after sync starts
+    document.getElementById("loadingScreen").style.display = "none";
 
   } else {
     window.currentUser = null;
@@ -585,6 +675,7 @@ onAuthStateChanged(auth, async (user) => {
       window.unsubscribeTracker = null;
     }
 
+    document.getElementById("loadingScreen").style.display = "none";
     document.getElementById("loginOverlay").style.display = "flex";
     document.getElementById("mainApp").style.display = "none";
   }
@@ -766,8 +857,8 @@ window.onload = function() {
 };
 
 function setDefaultDates() {
-  let savedStart = localStorage.getItem("startDate") || "2026-04-09";
-  let savedEnd = localStorage.getItem("endDate") || "2026-05-09";
+  const savedStart = localStorage.getItem("startDate") || "2026-04-09";
+  const savedEnd = localStorage.getItem("endDate") || "2026-05-09";
 
   document.getElementById("startDate").value = savedStart;
   document.getElementById("endDate").value = savedEnd;
